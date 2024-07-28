@@ -1,30 +1,15 @@
-# Use the official .NET 8 SDK image as a build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0@sha256:35792ea4ad1db051981f62b313f1be3b46b1f45cadbaa3c288cd0d3056eefb83 AS build-env
+WORKDIR /App
 
-# Set the working directory
-WORKDIR /app
-
-# Copy the project file and restore any dependencies (using a specific directory for the nuget packages)
-COPY *.csproj ./
-RUN dotnet restore
-
-# Copy the rest of the application code
+# Copy everything
 COPY . ./
-
-# Build the application
+# Restore as distinct layers
+RUN dotnet restore
+# Build and publish a release
 RUN dotnet publish -c Release -o out
 
-# Use the official .NET runtime image for the runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
-
-# Set the working directory
-WORKDIR /app
-
-# Copy the built application from the build stage
-COPY --from=build /app/out .
-
-# Expose the port that the application will run on
-EXPOSE 80
-
-# Set the entry point to run the application
-ENTRYPOINT ["dotnet", "YourProjectName.dll"]
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0@sha256:6c4df091e4e531bb93bdbfe7e7f0998e7ced344f54426b7e874116a3dc3233ff
+WORKDIR /App
+COPY --from=build-env /App/out .
+ENTRYPOINT ["dotnet", "DotNet.Docker.dll"]
