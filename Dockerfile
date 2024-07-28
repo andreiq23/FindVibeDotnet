@@ -1,20 +1,27 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
-WORKDIR /App
+# Use the official image as a parent image
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
+WORKDIR /app
+EXPOSE 80
 
-# Copy everything
-COPY . ./
-# Restore as distinct layers
-RUN dotnet restore
-# Build and publish a release
-RUN dotnet publish -c Release -o out
+# Use the SDK image to build the app
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+WORKDIR /src
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
-WORKDIR /App
-COPY --from=build-env /App/out .
+# Restore .NET dependencies
+COPY ["findVibedotnet.csproj", "/"]
+RUN dotnet restore "findVibedotnet.csproj"
 
-# Ensure the DLL file exists
-RUN ls -la
+# Copy everything else and build
+COPY . .
+WORKDIR "/src"
+RUN dotnet build "findVibedotnet.csproj" -c Release -o /app/build
 
-ENTRYPOINT ["dotnet", "findVibedotnet.dll"]
+# Publish the api project
+FROM build AS publish
+RUN dotnet publish "findVibedotnet.csproj" -c Release -o /app/publish
+
+# Copy the build app to the base image and define entrypoint
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "findVibedotnet.csproj"]
